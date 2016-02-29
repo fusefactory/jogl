@@ -30,94 +30,92 @@ package jogamp.opengl.util.awt.text;
 import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL3;
 
-
 /**
  * {@link QuadPipeline} for use with OpenGL 3.
  *
  * <p>
- * {@code QuadPipelineGL30} draws quads using OpenGL 3 features.  It uses a Vertex Buffer Object to
- * store vertices in graphics memory and a Vertex Array Object to quickly switch which vertex
- * attributes are enabled.
+ * {@code QuadPipelineGL30} draws quads using OpenGL 3 features. It uses a
+ * Vertex Buffer Object to store vertices in graphics memory and a Vertex Array
+ * Object to quickly switch which vertex attributes are enabled.
  *
  * <p>
- * Since {@code GL_QUAD} has been deprecated in OpenGL 3, this implementation uses two triangles to
- * represent one quad.  An alternative implementation using one {@code GL_FAN} per quad was also
- * tested, but proved slower in most cases.  Apparently the penalty imposed by the extra work
- * required by the driver outweighed the benefit of transferring less vertices.
+ * Since {@code GL_QUAD} has been deprecated in OpenGL 3, this implementation
+ * uses two triangles to represent one quad. An alternative implementation using
+ * one {@code GL_FAN} per quad was also tested, but proved slower in most cases.
+ * Apparently the penalty imposed by the extra work required by the driver
+ * outweighed the benefit of transferring less vertices.
  */
-/*@VisibleForTesting*/
-/*@NotThreadSafe*/
-public final class QuadPipelineGL30 extends AbstractQuadPipeline {
+/* @VisibleForTesting */
+/* @NotThreadSafe */
+public final class QuadPipelineGL30 extends AbstractQuadPipeline
+{
 
-    /**
-     * Name of point attribute in shader program.
-     */
-    /*@Nonnull*/
-    private static final String POINT_ATTRIB_NAME = "MCVertex";
+	/**
+	 * Name of point attribute in shader program.
+	 */
+	/* @Nonnull */
+	private static final String POINT_ATTRIB_NAME = "MCVertex";
 
-    /**
-     * Name of texture coordinate attribute in shader program.
-     */
-    /*@Nonnull*/
-    private static final String COORD_ATTRIB_NAME = "TexCoord0";
+	/**
+	 * Name of texture coordinate attribute in shader program.
+	 */
+	/* @Nonnull */
+	private static final String COORD_ATTRIB_NAME = "TexCoord0";
 
-    /**
-     * Number of vertices per primitive.
-     */
-    /*@Nonnegative*/
-    private static final int VERTS_PER_PRIM = 3;
+	/**
+	 * Number of vertices per primitive.
+	 */
+	/* @Nonnegative */
+	private static final int VERTS_PER_PRIM = 3;
 
-    /**
-     * Number of primitives per quad.
-     */
-    /*@Nonnegative*/
-    private static final int PRIMS_PER_QUAD = 2;
+	/**
+	 * Number of primitives per quad.
+	 */
+	/* @Nonnegative */
+	private static final int PRIMS_PER_QUAD = 2;
 
-    /**
-     * Vertex Buffer Object with vertex data.
-     */
-    /*@Nonnegative*/
-    private final int vbo;
+	/**
+	 * Vertex Buffer Object with vertex data.
+	 */
+	/* @Nonnegative */
+	private int vbo;
+	private int vao;
+	private boolean useVertexArrays;
+	
+	private int program;
 
-    /**
-     * Vertex Array Object with vertex attribute state.
-     */
-    /*@Nonnegative*/
-    private final int vao;
+	/**
+	 * Constructs a {@link QuadPipelineGL30}.
+	 *
+	 * @param gl
+	 *            Current OpenGL context
+	 * @param shaderProgram
+	 *            Shader program to render quads with
+	 * @throws NullPointerException
+	 *             if context is null
+	 * @throws IllegalArgumentException
+	 *             if shader program is less than one
+	 */
+	/* @VisibleForTesting */
+	public QuadPipelineGL30(/* @Nonnull */ final GL3 gl, /* @Nonnegative */ final int shaderProgram, final boolean useVertexArrays)
+	{
 
-    /**
-     * Constructs a {@link QuadPipelineGL30}.
-     *
-     * @param gl Current OpenGL context
-     * @param shaderProgram Shader program to render quads with
-     * @throws NullPointerException if context is null
-     * @throws IllegalArgumentException if shader program is less than one
-     */
-    /*@VisibleForTesting*/
-    public QuadPipelineGL30(/*@Nonnull*/ final GL3 gl, /*@Nonnegative*/ final int shaderProgram) {
+		super(VERTS_PER_PRIM, PRIMS_PER_QUAD);
 
-        super(VERTS_PER_PRIM, PRIMS_PER_QUAD);
-
-        Check.notNull(gl, "GL cannot be null");
-        Check.argument(shaderProgram > 0, "Shader program cannot be less than one");
-
-        this.vbo = createVertexBufferObject(gl, BYTES_PER_BUFFER);
-        this.vao = createVertexArrayObject(gl, shaderProgram, vbo);
-    }
-
-    @Override
-    public void beginRendering(/*@Nonnull*/ final GL gl) {
-
-        super.beginRendering(gl);
-
-        final GL3 gl3 = gl.getGL3();
-
-        // Bind the VBO and VAO
-        gl3.glBindBuffer(GL3.GL_ARRAY_BUFFER, vbo);
-        gl3.glBindVertexArray(vao);
-    }
-
-    /**
+		Check.notNull(gl, "GL cannot be null");
+		Check.argument(shaderProgram > 0, "Shader program cannot be less than one");
+		
+		vbo = createVertexBufferObject(gl, BYTES_PER_BUFFER);
+		program = shaderProgram;
+		
+		this.useVertexArrays = useVertexArrays;
+		if (useVertexArrays)
+		{
+			vao = createVertexArrayObject(gl, shaderProgram, vbo);
+		}
+	}
+	
+	/**
      * Creates a vertex array object for use with the pipeline.
      *
      * @param gl Current OpenGL context, assumed not null
@@ -174,75 +172,125 @@ public final class QuadPipelineGL30 extends AbstractQuadPipeline {
         return vao;
     }
 
-    @Override
-    public void dispose(/*@Nonnull*/ final GL gl) {
+	@Override
+	public void beginRendering(/* @Nonnull */ final GL gl)
+	{
+		super.beginRendering(gl);
 
-        super.dispose(gl);
+		final GL3 gl3 = gl.getGL3();
 
-        final GL3 gl3 = gl.getGL3();
+		// Bind the VBO and VAO
+		gl3.glBindBuffer(GL3.GL_ARRAY_BUFFER, vbo);
+		
+		if (useVertexArrays) gl3.glBindVertexArray(vao);
+		else
+		{
+			// Points
+			final int pointLoc = gl3.glGetAttribLocation(program, POINT_ATTRIB_NAME);
+			if (pointLoc == -1)
+			{
+				throw new IllegalStateException("Could not find point attribute location!");
+			}
+			else
+			{
+				gl3.glEnableVertexAttribArray(pointLoc);
+				gl3.glVertexAttribPointer(pointLoc, // location
+				FLOATS_PER_POINT, // number of components
+				GL3.GL_FLOAT, // type
+				false, // normalized
+				STRIDE, // stride
+				POINT_OFFSET); // offset
+			}
 
-        // Delete VBO and VAO
-        final int[] handles = new int[1];
-        handles[0] = vbo;
-        gl3.glDeleteBuffers(1, handles, 0);
-        handles[0] = vao;
-        gl3.glDeleteVertexArrays(1, handles, 0);
-    }
+			// Coords
+			final int coordLoc = gl3.glGetAttribLocation(program, COORD_ATTRIB_NAME);
+			if (coordLoc != -1)
+			{
+				gl3.glEnableVertexAttribArray(coordLoc);
+				gl3.glVertexAttribPointer(coordLoc, // location
+				FLOATS_PER_COORD, // number of components
+				GL3.GL_FLOAT, // type
+				false, // normalized
+				STRIDE, // stride
+				COORD_OFFSET); // offset
+			}
+		}
+	}
 
-    @Override
-    protected void doAddQuad(/*@Nonnull*/ final Quad quad) {
+	@Override
+	public void dispose(/* @Nonnull */ final GL gl)
+	{
 
-        Check.notNull(quad, "Quad cannot be null");
+		super.dispose(gl);
 
-        // Add upper-left triangle
-        addPoint(quad.xr, quad.yt, quad.z);
-        addCoord(quad.sr, quad.tt);
-        addPoint(quad.xl, quad.yt, quad.z);
-        addCoord(quad.sl, quad.tt);
-        addPoint(quad.xl, quad.yb, quad.z);
-        addCoord(quad.sl, quad.tb);
+		final GL3 gl3 = gl.getGL3();
 
-        // Add lower-right triangle
-        addPoint(quad.xr, quad.yt, quad.z);
-        addCoord(quad.sr, quad.tt);
-        addPoint(quad.xl, quad.yb, quad.z);
-        addCoord(quad.sl, quad.tb);
-        addPoint(quad.xr, quad.yb, quad.z);
-        addCoord(quad.sr, quad.tb);
-    }
+		// Delete VBO and VAO
+		final int[] handles = new int[1];
+		handles[0] = vbo;
+		gl3.glDeleteBuffers(1, handles, 0);
+		if (useVertexArrays)
+		{
+			handles[0] = vao;
+	        gl3.glDeleteVertexArrays(1, handles, 0);
+		}
+	}
 
-    @Override
-    protected void doFlush(/*@Nonnull*/ final GL gl) {
+	@Override
+	protected void doAddQuad(/* @Nonnull */ final Quad quad)
+	{
 
-        Check.notNull(gl, "GL cannot be null");
+		Check.notNull(quad, "Quad cannot be null");
 
-        final GL3 gl3 = gl.getGL3();
+		// Add upper-left triangle
+		addPoint(quad.xr, quad.yt, quad.z);
+		addCoord(quad.sr, quad.tt);
+		addPoint(quad.xl, quad.yt, quad.z);
+		addCoord(quad.sl, quad.tt);
+		addPoint(quad.xl, quad.yb, quad.z);
+		addCoord(quad.sl, quad.tb);
 
-        // Upload data
-        rewind();
-        gl3.glBufferSubData(
-                GL3.GL_ARRAY_BUFFER, // target
-                0,                   // offset
-                getSizeInBytes(),    // size
-                getData());          // data
+		// Add lower-right triangle
+		addPoint(quad.xr, quad.yt, quad.z);
+		addCoord(quad.sr, quad.tt);
+		addPoint(quad.xl, quad.yb, quad.z);
+		addCoord(quad.sl, quad.tb);
+		addPoint(quad.xr, quad.yb, quad.z);
+		addCoord(quad.sr, quad.tb);
+	}
 
-        // Draw
-        gl3.glDrawArrays(
-                GL3.GL_TRIANGLES,     // mode
-                0,                    // first
-                getSizeInVertices()); // count
-        clear();
-    }
+	@Override
+	protected void doFlush(/* @Nonnull */ final GL gl)
+	{
 
-    @Override
-    public void endRendering(/*@Nonnull*/ final GL gl) {
+		Check.notNull(gl, "GL cannot be null");
 
-        super.endRendering(gl);
+		final GL3 gl3 = gl.getGL3();
 
-        final GL3 gl3 = gl.getGL3();
+		// Upload data
+		rewind();
+		gl3.glBufferSubData(GL3.GL_ARRAY_BUFFER, // target
+		0, // offset
+		getSizeInBytes(), // size
+		getData()); // data
 
-        // Unbind the VBO and VAO
-        gl3.glBindBuffer(GL3.GL_ARRAY_BUFFER, 0);
-        gl3.glBindVertexArray(0);
-    }
+		// Draw
+		gl3.glDrawArrays(GL3.GL_TRIANGLES, // mode
+		0, // first
+		getSizeInVertices()); // count
+		clear();
+	}
+
+	@Override
+	public void endRendering(/* @Nonnull */ final GL gl)
+	{
+
+		super.endRendering(gl);
+
+		final GL3 gl3 = gl.getGL3();
+
+		// Unbind the VBO and VAO
+		gl3.glBindBuffer(GL3.GL_ARRAY_BUFFER, 0);
+		if (useVertexArrays) gl3.glBindVertexArray(0);
+	}
 }

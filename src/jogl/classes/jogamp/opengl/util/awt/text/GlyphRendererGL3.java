@@ -34,236 +34,233 @@ import com.jogamp.opengl.GL3;
 /**
  * Utility for drawing glyphs with OpenGL 3.
  */
-/*@VisibleForTesting*/
-/*@NotThreadSafe*/
-public final class GlyphRendererGL3 extends AbstractGlyphRenderer {
+/* @VisibleForTesting */
+/* @NotThreadSafe */
+public final class GlyphRendererGL3 extends AbstractGlyphRenderer
+{
 
-    /**
-     * Source code of vertex shader.
-     */
-    /*@Nonnull*/
-    private static final String VERT_SOURCE =
-        "#version 140\n" +
-        "uniform mat4 MVPMatrix;\n" +
-        "in vec4 MCVertex;\n" +
-        "in vec2 TexCoord0;\n" +
-        "out vec2 Coord0;\n" +
-        "void main() {\n" +
-        "   gl_Position = MVPMatrix * MCVertex;\n" +
-        "   Coord0 = TexCoord0;\n" +
-        "}\n";
+	/**
+	 * Source code of vertex shader.
+	 */
+	/* @Nonnull */
+	private static final String VERT_SOURCE = "#version 140\n" + "uniform mat4 MVPMatrix;\n" + "in vec4 MCVertex;\n" + "in vec2 TexCoord0;\n" + "out vec2 Coord0;\n" + "void main() {\n" + "   gl_Position = MVPMatrix * MCVertex;\n" + "   Coord0 = TexCoord0;\n" + "}\n";
 
-    /**
-     * Source code of fragment shader.
-     */
-    /*@Nonnull*/
-    private static final String FRAG_SOURCE =
-        "#version 140\n" +
-        "uniform sampler2D Texture;\n" +
-        "uniform vec4 Color=vec4(1,1,1,1);\n" +
-        "in vec2 Coord0;\n" +
-        "out vec4 FragColor;\n" +
-        "void main() {\n" +
-        "   float sample;\n" +
-        "   sample = texture(Texture,Coord0).r;\n" +
-        "   FragColor = Color * sample;\n" +
-        "}\n";
+	/**
+	 * Source code of fragment shader.
+	 */
+	/* @Nonnull */
+	private static final String FRAG_SOURCE = "#version 140\n" + "uniform sampler2D Texture;\n" + "uniform vec4 Color=vec4(1,1,1,1);\n" + "in vec2 Coord0;\n" + "out vec4 FragColor;\n" + "void main() {\n" + "   float sample;\n" + "   sample = texture(Texture,Coord0).r;\n" + "   FragColor = Color * sample;\n" + "}\n";
 
-    /**
-     * True if blending needs to be reset.
-     */
-    private boolean restoreBlending;
+	/**
+	 * True if blending needs to be reset.
+	 */
+	private boolean restoreBlending;
 
-    /**
-     * True if depth test needs to be reset.
-     */
-    private boolean restoreDepthTest;
+	/**
+	 * True if depth test needs to be reset.
+	 */
+	private boolean restoreDepthTest;
 
-    /**
-     * Shader program.
-     */
-    /*@Nonnegative*/
-    private final int program;
+	/**
+	 * Shader program.
+	 */
+	/* @Nonnegative */
+	private final int program;
 
-    /**
-     * Uniform for modelview projection.
-     */
-    /*@Nonnull*/
-    private final Mat4Uniform transform;
+	/**
+	 * Uniform for modelview projection.
+	 */
+	/* @Nonnull */
+	private final Mat4Uniform transform;
 
-    /**
-     * Uniform for color of glyphs.
-     */
-    /*@Nonnull*/
-    private final Vec4Uniform color;
+	/**
+	 * Uniform for color of glyphs.
+	 */
+	/* @Nonnull */
+	private final Vec4Uniform color;
 
-    /**
-     * Width of last orthographic render.
-     */
-    /*@Nonnegative*/
-    private int lastWidth = 0;
+	/**
+	 * Width of last orthographic render.
+	 */
+	/* @Nonnegative */
+	private int lastWidth = 0;
 
-    /**
-     * Height of last orthographic render
-     */
-    /*@Nonnegative*/
-    private int lastHeight = 0;
+	/**
+	 * Height of last orthographic render
+	 */
+	/* @Nonnegative */
+	private int lastHeight = 0;
 
-    /**
-     * Constructs a {@link GlyphRendererGL3}.
-     *
-     * @param gl Current OpenGL context
-     * @throws NullPointerException if context is null
-     */
-    /*@VisibleForTesting*/
-    public GlyphRendererGL3(/*@Nonnull*/ final GL3 gl) {
+	private boolean useVertexArrays;
 
-        Check.notNull(gl, "GL cannot be null");
+	/**
+	 * Constructs a {@link GlyphRendererGL3}.
+	 *
+	 * @param gl
+	 *            Current OpenGL context
+	 * @throws NullPointerException
+	 *             if context is null
+	 */
+	/* @VisibleForTesting */
+	public GlyphRendererGL3(/* @Nonnull */ final GL3 gl)
+	{
 
-        this.program = ShaderLoader.loadProgram(gl, VERT_SOURCE, FRAG_SOURCE);
-        this.transform = new Mat4Uniform(gl, program, "MVPMatrix");
-        this.color = new Vec4Uniform(gl, program, "Color");
-    }
+		Check.notNull(gl, "GL cannot be null");
 
-    @Override
-    protected void doBeginRendering(/*@Nonnull*/ final GL gl,
-                                    final boolean ortho,
-                                    /*@Nonnegative*/ final int width,
-                                    /*@Nonnegative*/ final int height,
-                                    final boolean disableDepthTest) {
+		this.program = ShaderLoader.loadProgram(gl, VERT_SOURCE, FRAG_SOURCE);
+		this.transform = new Mat4Uniform(gl, program, "MVPMatrix");
+		this.color = new Vec4Uniform(gl, program, "Color");
+	}
 
-        Check.notNull(gl, "GL cannot be null");
-        Check.argument(width >= 0, "Width cannot be negative");
-        Check.argument(height >= 0, "Height cannot be negative");
+	@Override
+	protected void doBeginRendering(/* @Nonnull */ final GL gl, final boolean ortho,
+	/* @Nonnegative */ final int width,
+	/* @Nonnegative */ final int height, final boolean disableDepthTest)
+	{
 
-        final GL3 gl3 = gl.getGL3();
+		Check.notNull(gl, "GL cannot be null");
+		Check.argument(width >= 0, "Width cannot be negative");
+		Check.argument(height >= 0, "Height cannot be negative");
 
-        // Activate program
-        gl3.glUseProgram(program);
+		final GL3 gl3 = gl.getGL3();
 
-        // Check blending and depth test
-        restoreBlending = false;
-        if (!gl3.glIsEnabled(GL.GL_BLEND)) {
-            gl3.glEnable(GL.GL_BLEND);
-            gl3.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA);
-            restoreBlending = true;
-        }
-        restoreDepthTest = false;
-        if (disableDepthTest && gl3.glIsEnabled(GL.GL_DEPTH_TEST)) {
-            gl3.glDisable(GL.GL_DEPTH_TEST);
-            restoreDepthTest = true;
-        }
+		// Activate program
+		gl3.glUseProgram(program);
 
-        // Check transform
-        if (ortho) {
-            doSetTransformOrtho(gl, width, height);
-        }
-    }
+		// Check blending and depth test
+		restoreBlending = false;
+		if (!gl3.glIsEnabled(GL.GL_BLEND))
+		{
+			gl3.glEnable(GL.GL_BLEND);
+			gl3.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA);
+			restoreBlending = true;
+		}
+		restoreDepthTest = false;
+		if (disableDepthTest && gl3.glIsEnabled(GL.GL_DEPTH_TEST))
+		{
+			gl3.glDisable(GL.GL_DEPTH_TEST);
+			restoreDepthTest = true;
+		}
 
-    @Override
-    protected QuadPipeline doCreateQuadPipeline(/*@Nonnull*/ final GL gl) {
+		// Check transform
+		if (ortho)
+		{
+			doSetTransformOrtho(gl, width, height);
+		}
+	}
 
-        Check.notNull(gl, "GL cannot be null");
+	@Override
+	protected QuadPipeline doCreateQuadPipeline(/* @Nonnull */ final GL gl)
+	{
 
-        final GL3 gl3 = gl.getGL3();
-        return new QuadPipelineGL30(gl3, program);
-    }
+		Check.notNull(gl, "GL cannot be null");
 
-    protected void doDispose(/*@Nonnull*/ final GL gl) {
+		final GL3 gl3 = gl.getGL3();
+		return new QuadPipelineGL30(gl3, program, useVertexArrays);
+	}
 
-        Check.notNull(gl, "GL cannot be null");
+	@Override
+	protected void doDispose(/* @Nonnull */ final GL gl)
+	{
 
-        final GL3 gl3 = gl.getGL3();
+		Check.notNull(gl, "GL cannot be null");
 
-        gl3.glUseProgram(0);
-        gl3.glDeleteProgram(program);
-    }
+		final GL3 gl3 = gl.getGL3();
 
-    @Override
-    protected void doEndRendering(/*@Nonnull*/ final GL gl) {
+		gl3.glUseProgram(0);
+		gl3.glDeleteProgram(program);
+	}
 
-        Check.notNull(gl, "GL cannot be null");
+	@Override
+	protected void doEndRendering(/* @Nonnull */ final GL gl)
+	{
 
-        final GL3 gl3 = gl.getGL3();
+		Check.notNull(gl, "GL cannot be null");
 
-        // Deactivate program
-        gl3.glUseProgram(0);
+		final GL3 gl3 = gl.getGL3();
 
-        // Check blending and depth test
-        if (restoreBlending) {
-            gl3.glDisable(GL.GL_BLEND);
-        }
-        if (restoreDepthTest) {
-            gl3.glEnable(GL.GL_DEPTH_TEST);
-        }
-    }
+		// Deactivate program
+		gl3.glUseProgram(0);
 
-    @Override
-    protected void doSetColor(/*@Nonnull*/ final GL gl,
-                              final float r,
-                              final float g,
-                              final float b,
-                              final float a) {
+		// Check blending and depth test
+		if (restoreBlending)
+		{
+			gl3.glDisable(GL.GL_BLEND);
+		}
+		if (restoreDepthTest)
+		{
+			gl3.glEnable(GL.GL_DEPTH_TEST);
+		}
+	}
 
-        Check.notNull(gl, "GL cannot be null");
+	@Override
+	protected void doSetColor(/* @Nonnull */ final GL gl, final float r, final float g, final float b, final float a)
+	{
 
-        final GL3 gl3 = gl.getGL3();
+		Check.notNull(gl, "GL cannot be null");
 
-        color.value[0] = r;
-        color.value[1] = g;
-        color.value[2] = b;
-        color.value[3] = a;
-        color.update(gl3);
-    }
+		final GL3 gl3 = gl.getGL3();
 
-    @Override
-    protected void doSetTransform3d(/*@Nonnull*/ final GL gl,
-                                    /*@Nonnull*/ final float[] value,
-                                    final boolean transpose) {
+		color.value[0] = r;
+		color.value[1] = g;
+		color.value[2] = b;
+		color.value[3] = a;
+		color.update(gl3);
+	}
 
-        Check.notNull(gl, "GL cannot be null");
-        Check.notNull(value, "Value cannot be null");
+	@Override
+	protected void doSetTransform3d(/* @Nonnull */ final GL gl,
+	/* @Nonnull */ final float[] value, final boolean transpose)
+	{
 
-        final GL3 gl3 = gl.getGL3();
+		Check.notNull(gl, "GL cannot be null");
+		Check.notNull(value, "Value cannot be null");
 
-        gl3.glUniformMatrix4fv(transform.location, 1, transpose, value, 0);
-        transform.dirty = true;
-    }
+		final GL3 gl3 = gl.getGL3();
 
-    @Override
-    protected void doSetTransformOrtho(/*@Nonnull*/ final GL gl,
-                                       /*@Nonnegative*/ final int width,
-                                       /*@Nonnegative*/ final int height) {
+		gl3.glUniformMatrix4fv(transform.location, 1, transpose, value, 0);
+		transform.dirty = true;
+	}
 
-        Check.notNull(gl, "GL cannot be null");
-        Check.argument(width >= 0, "Width cannot be negative");
-        Check.argument(height >= 0, "Height cannot be negative");
+	@Override
+	protected void doSetTransformOrtho(/* @Nonnull */ final GL gl,
+	/* @Nonnegative */ final int width,
+	/* @Nonnegative */ final int height)
+	{
 
-        final GL3 gl3 = gl.getGL3();
+		Check.notNull(gl, "GL cannot be null");
+		Check.argument(width >= 0, "Width cannot be negative");
+		Check.argument(height >= 0, "Height cannot be negative");
 
-        // Recompute if width and height changed
-        if (width != lastWidth || height != lastHeight) {
-            Projection.orthographic(transform.value, width, height);
-            transform.transpose = true;
-            transform.dirty = true;
-            lastWidth = width;
-            lastHeight = height;
-        }
+		final GL3 gl3 = gl.getGL3();
 
-        // Upload if made dirty anywhere
-        if (transform.dirty) {
-            transform.update(gl3);
-            transform.dirty = false;
-        }
-    }
+		// Recompute if width and height changed
+		if (width != lastWidth || height != lastHeight)
+		{
+			Projection.orthographic(transform.value, width, height);
+			transform.transpose = true;
+			transform.dirty = true;
+			lastWidth = width;
+			lastHeight = height;
+		}
 
-    @Override
-    public boolean getUseVertexArrays() {
-        return true;
-    }
+		// Upload if made dirty anywhere
+		if (transform.dirty)
+		{
+			transform.update(gl3);
+			transform.dirty = false;
+		}
+	}
 
-    @Override
-    public void setUseVertexArrays(final boolean useVertexArrays) {
-        // empty
-    }
+	@Override
+	public boolean getUseVertexArrays()
+	{
+		return useVertexArrays;
+	}
+
+	@Override
+	public void setUseVertexArrays(final boolean useVertexArrays)
+	{
+		this.useVertexArrays = useVertexArrays;
+	}
 }

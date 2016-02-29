@@ -112,6 +112,11 @@ public final class TextRenderer {
     static final boolean DEBUG = false;
 
     /**
+     * True when method init() is call.
+     */
+    private boolean initialized;
+    
+    /**
      * Common instance of the default render delegate.
      */
     /*@Nonnull*/
@@ -202,7 +207,7 @@ public final class TextRenderer {
                         final boolean subpixel) {
         this(font, antialias, subpixel, null, false, null);
     }
-
+    
     /**
      * Constructs a {@link TextRenderer} with optional text properties and a render delegate.
      *
@@ -288,6 +293,17 @@ public final class TextRenderer {
     }
 
     /**
+     * Create initial glyches.
+     */
+    public void init()
+    {
+    	initialized = true;
+    	setColor(1, 1, 1, 1);
+        begin3DRendering();
+        end3DRendering();
+    }
+    
+    /**
      * Starts a 3D render cycle.
      *
      * <p>
@@ -362,6 +378,7 @@ public final class TextRenderer {
                                 /*@Nonnegative*/ final int height,
                                 final boolean disableDepthTest) {
 
+    	Check.argument(initialized, "Call init() method before use TextRenderer");
         Check.argument(width >= 0, "Width cannot be negative");
         Check.argument(height >= 0, "Height cannot be negative");
 
@@ -989,7 +1006,7 @@ public final class TextRenderer {
         /**
          * True to use vertex arrays.
          */
-        private boolean useVertexArrays = true;
+        private boolean useVertexArrays = false;
 
         GlyphRendererProxy() {
             // empty

@@ -93,7 +93,8 @@ public final class GlyphRendererGL2 extends AbstractGlyphRenderer {
     }
 
     /*@Nonnull*/
-    protected QuadPipeline doCreateQuadPipeline(/*@Nonnull*/ final GL gl) {
+    @Override
+	protected QuadPipeline doCreateQuadPipeline(/*@Nonnull*/ final GL gl) {
 
         Check.notNull(gl, "GL cannot be null");
 
@@ -112,7 +113,8 @@ public final class GlyphRendererGL2 extends AbstractGlyphRenderer {
         }
     }
 
-    protected void doDispose(/*@Nonnull*/ final GL gl) {
+    @Override
+	protected void doDispose(/*@Nonnull*/ final GL gl) {
         Check.notNull(gl, "GL cannot be null");
     }
 
